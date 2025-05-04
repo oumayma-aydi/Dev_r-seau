@@ -1,0 +1,61 @@
+#include <iostream>
+#include <unistd.h>
+#include <string.h>
+#include <thread>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+void receiveMessages(int client_socket) {
+    char buffer[1024];
+    while (true) {
+        memset(buffer, 0, sizeof(buffer));
+        int valread = read(client_socket, buffer, sizeof(buffer));
+        if (valread <= 0) {
+            std::cout << "Connexion fermée par le client." << std::endl;
+            break;
+        }
+        std::cout << "\nClient: " << buffer << std::endl;
+    }
+}
+
+void sendMessages(int client_socket) {
+    std::string message;
+    while (true) {
+        std::getline(std::cin, message);
+        send(client_socket, message.c_str(), message.length(), 0);
+        if (message == "exit") {
+            break;
+        }
+    }
+}
+
+int main() {
+    int server_fd, client_socket;
+    sockaddr_in address;
+    int addrlen = sizeof(address);
+
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(8080);
+
+    bind(server_fd, (struct sockaddr *)&address, sizeof(address));
+    listen(server_fd, 1);
+
+    std::cout << "Serveur en attente de connexion..." << std::endl;
+
+    client_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen);
+    std::cout << "Client connecté !" << std::endl;
+
+    std::thread recvThread(receiveMessages, client_socket);
+    std::thread sendThread(sendMessages, client_socket);
+
+    recvThread.join();
+    sendThread.join();
+
+    close(client_socket);
+    close(server_fd);
+    return 0;
+}
